@@ -139,11 +139,11 @@ class Deb::S3::Package
   end
 
   def url_filename(component)
-    @url_filename || "pool/#{component}/#{self.name[0]}/#{self.name[0..1]}/#{File.basename(self.filename)}"
+    @url_filename || "pool/#{component}/#{self.name[0]}/#{self.name}/#{File.basename(self.filename)}"
   end
 
   def url_filename_encoded(component)
-    @url_filename || "pool/#{component}/#{self.name[0]}/#{self.name[0..1]}/#{s3_escape(File.basename(self.filename))}"
+    @url_filename || "pool/#{component}/#{self.name[0]}/#{self.name}/#{s3_escape(File.basename(self.filename))}"
   end
 
   def generate(component)
