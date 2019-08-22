@@ -286,7 +286,7 @@ class Deb::S3::CLI < Thor
                                             false, false)
       manifest.packages.map do |package|
         if options[:long]
-          package.generate(options[:codename])
+          package.generate(options[:component])
         else
           [package.name, package.full_version, package.architecture].tap do |row|
             row.each_with_index do |col, i|
@@ -331,7 +331,7 @@ class Deb::S3::CLI < Thor
       error "No such package found."
     end
 
-    puts package.generate(options[:codename])
+    puts package.generate(options[:component])
   end
 
   desc "copy PACKAGE TO_CODENAME TO_COMPONENT ",
@@ -515,9 +515,9 @@ class Deb::S3::CLI < Thor
       missing_packages = []
 
       manifest.packages.each do |p|
-        unless Deb::S3::Utils.s3_exists? p.url_filename_encoded(options[:codename])
+        unless Deb::S3::Utils.s3_exists? p.url_filename_encoded(options[:component])
           sublog("The following packages are missing:\n\n") if missing_packages.empty?
-          puts(p.generate(options[:codename]))
+          puts(p.generate(options[:component]))
           puts("")
 
           missing_packages << p
