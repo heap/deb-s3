@@ -1,6 +1,7 @@
 # -*- encoding : utf-8 -*-
 require "tempfile"
 require "zlib"
+require 'rbzip2'
 require 'deb/s3/utils'
 require 'deb/s3/package'
 
@@ -129,6 +130,21 @@ class Deb::S3::Manifest
     s3_store(gztemp.path, f, 'application/x-gzip; charset=binary', self.cache_control)
     @files["#{@component}/binary-#{@architecture}/Packages.gz"] = hashfile(gztemp.path)
     gztemp.unlink
+
+    # generate the Packages.bz2 file
+    bz2temp = Tempfile.new("Packages.bz2",)
+    bz2temp.close
+    file = File.new(bz2temp.path, "w+")
+    bz2  = RBzip2.default_adapter::Compressor.new file
+    bz2.write manifest
+    bz2.close
+    file.close
+
+    f = "dists/#{@codename}/#{@component}/binary-#{@architecture}/Packages.bz2"
+    yield f if block_given?
+    s3_store(bz2temp.path, f, 'application/x-gzip; charset=binary', self.cache_control)
+    @files["#{@component}/binary-#{@architecture}/Packages.bz2"] = hashfile(bz2temp.path)
+    bz2temp.unlink
 
     nil
   end
