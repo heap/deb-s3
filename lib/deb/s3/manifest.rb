@@ -1,6 +1,7 @@
 # -*- encoding : utf-8 -*-
 require "tempfile"
 require "zlib"
+require 'rbzip2'
 require 'deb/s3/utils'
 require 'deb/s3/package'
 
@@ -62,11 +63,11 @@ class Deb::S3::Manifest
       packages.each { |p|
         next unless p.name == pkg.name && \
                     p.full_version == pkg.full_version && \
-                    File.basename(p.url_filename(@codename)) != \
-                    File.basename(pkg.url_filename(@codename))
+                    File.basename(p.url_filename(@component)) != \
+                    File.basename(pkg.url_filename(@component))
         raise AlreadyExistsError,
               "package #{pkg.name}_#{pkg.full_version} already exists " \
-              "with different filename (#{p.url_filename(@codename)})"
+              "with different filename (#{p.url_filename(@component)})"
       }
     end
     if preserve_versions
@@ -96,7 +97,7 @@ class Deb::S3::Manifest
   end
 
   def generate
-    @packages.collect { |pkg| pkg.generate(@codename) }.join("\n")
+    @packages.collect { |pkg| pkg.generate(@component) }.join("\n")
   end
 
   def write_to_s3
@@ -105,8 +106,8 @@ class Deb::S3::Manifest
     unless self.skip_package_upload
       # store any packages that need to be stored
       @packages_to_be_upload.each do |pkg|
-        yield pkg.url_filename(@codename) if block_given?
-        s3_store(pkg.filename, pkg.url_filename(@codename), 'application/octet-stream; charset=binary', self.cache_control, self.fail_if_exists)
+        yield pkg.url_filename(@component) if block_given?
+        s3_store(pkg.filename, pkg.url_filename(@component), 'application/octet-stream; charset=binary', self.cache_control, self.fail_if_exists)
       end
     end
 
@@ -129,6 +130,21 @@ class Deb::S3::Manifest
     s3_store(gztemp.path, f, 'application/x-gzip; charset=binary', self.cache_control)
     @files["#{@component}/binary-#{@architecture}/Packages.gz"] = hashfile(gztemp.path)
     gztemp.unlink
+
+    # generate the Packages.bz2 file
+    bz2temp = Tempfile.new("Packages.bz2",)
+    bz2temp.close
+    file = File.new(bz2temp.path, "w+")
+    bz2  = RBzip2.default_adapter::Compressor.new file
+    bz2.write manifest
+    bz2.close
+    file.close
+
+    f = "dists/#{@codename}/#{@component}/binary-#{@architecture}/Packages.bz2"
+    yield f if block_given?
+    s3_store(bz2temp.path, f, 'application/x-gzip; charset=binary', self.cache_control)
+    @files["#{@component}/binary-#{@architecture}/Packages.bz2"] = hashfile(bz2temp.path)
+    bz2temp.unlink
 
     nil
   end
